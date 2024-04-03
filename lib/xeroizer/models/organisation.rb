@@ -60,7 +60,7 @@ module Xeroizer
       string    :sales_tax_basis
       string    :sales_tax_period
       string    :edition
-      string    :class
+      string    :organisation_class, :api_name => 'Class'
 
       has_many :addresses
       has_many :phones
