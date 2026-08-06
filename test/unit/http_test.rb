@@ -171,6 +171,7 @@ class HttpTest < UnitTestCase
             headers: {
               "x-daylimit-remaining" => "328",
               "retry-after" => "42",
+              "x-rate-limit-problem" => "minute",
             }
           )
         end
@@ -182,6 +183,35 @@ class HttpTest < UnitTestCase
           assert_match /42 seconds until you can make another request/i, error.message
           assert_equal 42, error.retry_after
           assert_equal 328, error.daily_limit_remaining
+        end
+
+        should "expose the limit that refused the request" do
+          error = assert_raises(Xeroizer::OAuth::RateLimitExceeded){ @application.http_get(@application.client, @uri) }
+          assert_equal "minute", error.rate_limit_problem
+        end
+
+        should "name the limit in the message so limits are distinguishable" do
+          error = assert_raises(Xeroizer::OAuth::RateLimitExceeded){ @application.http_get(@application.client, @uri) }
+          assert_match /rate limit exceeded \(minute\)/i, error.message
+        end
+      end
+
+      context "rate_limit_exceeded without a rate limit problem header" do
+        setup do
+          stub_request(:get, @uri).to_return(
+            status: @status_code,
+            body: "",
+            headers: {
+              "x-daylimit-remaining" => "328",
+              "retry-after" => "42",
+            }
+          )
+        end
+
+        should "leave the limit unnamed rather than guessing" do
+          error = assert_raises(Xeroizer::OAuth::RateLimitExceeded){ @application.http_get(@application.client, @uri) }
+          assert_nil error.rate_limit_problem
+          assert_equal "Rate limit exceeded: 328 requests left for the day, 42 seconds until you can make another request", error.message
         end
       end
     end
