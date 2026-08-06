@@ -33,14 +33,22 @@ module Xeroizer
     class UnknownError < OAuthError; end
 
     class RateLimitExceeded < OAuthError
-      def initialize(description, retry_after: nil, daily_limit_remaining: nil)
+      # `rate_limit_problem` names which of Xero's limits refused the request, taken from the
+      # `X-Rate-Limit-Problem` header: "minute", "daily", "appminute" or "concurrent". A caller
+      # deciding how long to wait needs it — a minute limit clears in under a minute, whereas a
+      # daily limit does not clear until Xero's rollover, and an app-minute limit is shared with
+      # every other organisation the application is connected to, so backing off one tenant does
+      # not release it. Nil when Xero sends no such header, which includes every rate limit
+      # reported through an OAuth problem code rather than a 429.
+      def initialize(description, retry_after: nil, daily_limit_remaining: nil, rate_limit_problem: nil)
         super(description)
 
         @retry_after = retry_after
         @daily_limit_remaining = daily_limit_remaining
+        @rate_limit_problem = rate_limit_problem
       end
 
-      attr_reader :retry_after, :daily_limit_remaining
+      attr_reader :retry_after, :daily_limit_remaining, :rate_limit_problem
     end
 
     unless defined? XERO_CONSUMER_OPTIONS

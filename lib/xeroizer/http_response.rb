@@ -95,9 +95,22 @@ module Xeroizer
     def raise_rate_limit_exceeded!
       retry_after = response.response.headers["retry-after"].to_i
       daily_limit_remaining = response.response.headers["x-daylimit-remaining"].to_i
+      rate_limit_problem = response.response.headers["x-rate-limit-problem"]
+      rate_limit_problem = nil if rate_limit_problem.nil? || rate_limit_problem.empty?
 
-      description = "Rate limit exceeded: #{daily_limit_remaining} requests left for the day, #{retry_after} seconds until you can make another request"
-      raise OAuth::RateLimitExceeded.new(description, retry_after: retry_after, daily_limit_remaining: daily_limit_remaining)
+      # The limit is named in the message as well as carried on the error. Every one of Xero's
+      # limits produces this same sentence, so without it a minute, daily, app-minute and
+      # concurrent rejection are one indistinguishable group in any error reporter that groups
+      # by message — including for callers that never read the accessor.
+      limit = rate_limit_problem ? " (#{rate_limit_problem})" : ""
+
+      description = "Rate limit exceeded#{limit}: #{daily_limit_remaining} requests left for the day, #{retry_after} seconds until you can make another request"
+      raise OAuth::RateLimitExceeded.new(
+        description,
+        retry_after: retry_after,
+        daily_limit_remaining: daily_limit_remaining,
+        rate_limit_problem: rate_limit_problem
+      )
     end
 
     def raise_unknown_response_error!
