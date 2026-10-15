@@ -115,6 +115,35 @@ class HttpTest < UnitTestCase
       end
     end
 
+    context "403" do
+      setup do
+        @status_code = 403
+      end
+
+      context "with an oauth_problem" do
+        setup do
+          body = "oauth_problem_advice=token advice&oauth_problem=token_expired"
+          stub_request(:get, @uri).to_return(status: @status_code, body: body)
+        end
+
+        should "still raise the specific OAuth error" do
+          error = assert_raises(Xeroizer::OAuth::TokenExpired) { @application.http_get(@application.client, @uri) }
+          assert_equal "token advice", error.message
+        end
+      end
+
+      context "without an oauth_problem" do
+        setup do
+          stub_request(:get, @uri).to_return(status: @status_code, body: "Forbidden")
+        end
+
+        should "raise an OAuth::Forbidden rather than burying it in OAuth::UnknownError" do
+          error = assert_raises(Xeroizer::OAuth::Forbidden) { @application.http_get(@application.client, @uri) }
+          assert_equal "Xero refused this request.", error.message
+        end
+      end
+    end
+
     context "404" do
       setup do
         @status_code = 404

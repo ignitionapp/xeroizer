@@ -44,6 +44,8 @@ module Xeroizer
         when "organisation offline"         then raise OAuth::OrganisationOffline.new(description)
         else raise OAuth::UnknownError.new(problem + ':' + description)
         end
+      elsif response.code.to_i == 403
+        raise OAuth::Forbidden.new(description || "Xero refused this request.")
       else
         raise OAuth::UnknownError.new("Xero API may be down or the way OAuth errors are provided by Xero may have changed.")
       end
